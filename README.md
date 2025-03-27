@@ -20,9 +20,53 @@ The token needs the following permissions:
 - `project` (read/write)
 - `repo` (read)
 
-## Usage
+## Usage with Claude Desktop
 
-### As a Library
+Add this to your `claude_desktop_config.json`:
+
+### Docker
+
+```json
+{
+  "mcpServers": {
+    "github-projects": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_TOKEN",
+        "mcp/github-projects"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "YOUR_TOKEN_HERE"
+      }
+    }
+  }
+}
+```
+
+### NPX
+
+```json
+{
+  "mcpServers": {
+    "github-projects": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@terraco89/mcp-server-github-projects"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "YOUR_TOKEN_HERE"
+      }
+    }
+  }
+}
+```
+
+## Usage as a Library
 
 ```typescript
 import { server } from '@terraco89/mcp-server-github-projects';
@@ -31,7 +75,7 @@ import { server } from '@terraco89/mcp-server-github-projects';
 server.listen();
 ```
 
-### As a CLI
+## Usage as a CLI
 
 ```bash
 mcp-server-github-projects
@@ -67,6 +111,14 @@ npm run build
 
 # Watch mode
 npm run watch
+```
+
+## Build
+
+Docker build:
+
+```bash
+docker build -t mcp/github-projects -f Dockerfile .
 ```
 
 ## License
