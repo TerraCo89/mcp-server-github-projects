@@ -1,6 +1,6 @@
-# MCP Server for GitHub Projects
+# MCP Server GitHub Projects
 
-A Model Context Protocol server for interacting with GitHub Projects API.
+A Model Context Protocol server implementation for the GitHub Projects API. This package provides operations for managing GitHub Project views, priorities, dependencies, and metrics.
 
 ## Installation
 
@@ -8,48 +8,66 @@ A Model Context Protocol server for interacting with GitHub Projects API.
 npm install @terraco89/mcp-server-github-projects
 ```
 
+## Configuration
+
+Set the following environment variables:
+
+```bash
+GITHUB_TOKEN=your_github_personal_access_token
+```
+
+The token needs the following permissions:
+- `project` (read/write)
+- `repo` (read)
+
 ## Usage
 
-### Environment Variables
+### As a Library
 
-Set your GitHub Personal Access Token:
+```typescript
+import { server } from '@terraco89/mcp-server-github-projects';
 
-```bash
-export GITHUB_PERSONAL_ACCESS_TOKEN=your_token_here
+// Start the server
+server.listen();
 ```
 
-### Running the Server
+### As a CLI
 
 ```bash
-npx @terraco89/mcp-server-github-projects --stdio
+mcp-server-github-projects
 ```
 
-### Available Tools
+## Available Operations
 
-- `list_organization_projects` - List projects in an organization
-- `list_user_projects` - List projects for the authenticated user
-- `create_project` - Create a new project
-- `get_project_fields` - Get fields for a project
-- `update_project_field` - Update a project field
-- `add_project_item` - Add an item to a project
-- `delete_project_item` - Delete an item from a project
-- `list_project_items` - List items in a project
-- `create_project_view` - Create a new project view
-- `update_project_view` - Update a project view
-- `delete_project_view` - Delete a project view
-- `list_project_views` - List views in a project
-- `assess_item_priority` - Assess and update priority of project items
-- `manage_item_dependencies` - Manage dependencies between project items
-- `analyze_dependencies` - Analyze project dependencies
-- `generate_project_metrics` - Generate project metrics
+### Project Views
+- `createProjectView` - Create a new view in a GitHub Project
+- `updateProjectView` - Update an existing view
+- `deleteProjectView` - Delete a view
+- `listProjectViews` - List all views in a project
 
-## n8n Integration
+### Priorities
+- `assessItemPriority` - Assess and update item priority
+- `batchUpdatePriorities` - Update multiple item priorities
 
-This server can be used with n8n's MCP Client nodes. Configure the MCP Client node with:
+### Dependencies
+- `manageItemDependencies` - Manage item dependencies
+- `analyzeDependencies` - Analyze project dependencies
 
-- Command: `npx`
-- Arguments: `@terraco89/mcp-server-github-projects --stdio`
-- Environment: Set `GITHUB_PERSONAL_ACCESS_TOKEN`
+### Metrics
+- `generateProjectMetrics` - Generate project metrics
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Build
+npm run build
+
+# Watch mode
+npm run watch
+```
 
 ## License
 

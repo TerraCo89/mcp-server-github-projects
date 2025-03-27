@@ -1,305 +1,112 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
-import { GraphQLClient } from './common/utils.js';
-import { createGitHubError } from './common/errors.js';
+import { createServer } from '@modelcontextprotocol/sdk';
 import { z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 
 // Import operations
-import * as projects from './operations/projects.js';
-import * as projectItems from './operations/project-items.js';
 import * as projectViews from './operations/project-views.js';
 import * as priorities from './operations/priorities.js';
 import * as dependencies from './operations/dependencies.js';
 import * as metrics from './operations/metrics.js';
 
-// Create GraphQL client
-const client = new GraphQLClient();
-
-// Create server instance
-const server = new Server(
-  {
-    name: "github-projects-mcp-server",
-    version: "0.1.0",
-  },
-  {
-    capabilities: {
-      tools: {},
+// Create and export the MCP server
+export const server = createServer({
+  name: 'github-projects',
+  version: '0.1.0',
+  description: 'GitHub Projects API operations for MCP',
+  operations: {
+    // Project Views Operations
+    createProjectView: {
+      description: 'Create a new view in a GitHub Project',
+      input: projectViews.CreateProjectViewSchema,
+      handler: async ({ input, context }) => {
+        return projectViews.createProjectView(
+          input.project_id,
+          input.name,
+          input.layout
+        );
+      },
     },
-  }
-);
+    updateProjectView: {
+      description: 'Update an existing view in a GitHub Project',
+      input: projectViews.UpdateProjectViewSchema,
+      handler: async ({ input, context }) => {
+        return projectViews.updateProjectView(
+          input.project_id,
+          input.view_id,
+          {
+            name: input.name,
+            layout: input.layout
+          }
+        );
+      },
+    },
+    deleteProjectView: {
+      description: 'Delete a view from a GitHub Project',
+      input: projectViews.DeleteProjectViewSchema,
+      handler: async ({ input, context }) => {
+        return projectViews.deleteProjectView(
+          input.project_id,
+          input.view_id
+        );
+      },
+    },
+    listProjectViews: {
+      description: 'List all views in a GitHub Project',
+      input: projectViews.ListProjectViewsSchema,
+      handler: async ({ input, context }) => {
+        return projectViews.listProjectViews(
+          input.project_id,
+          {
+            page: input.page,
+            per_page: input.per_page
+          }
+        );
+      },
+    },
 
-// Set up request handlers
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
-    tools: [
-      {
-        name: "list_organization_projects",
-        description: "List projects in an organization",
-        inputSchema: zodToJsonSchema(projects.ListProjectsSchema),
+    // Priority Operations
+    assessItemPriority: {
+      description: 'Assess and update the priority of a project item',
+      input: priorities.PriorityAssessmentSchema,
+      handler: async ({ input, context }) => {
+        return priorities.assessItemPriority(context.client, input);
       },
-      {
-        name: "list_user_projects",
-        description: "List projects for the authenticated user",
-        inputSchema: zodToJsonSchema(projects.ListUserProjectsSchema),
+    },
+    batchUpdatePriorities: {
+      description: 'Update priorities for multiple items in batch',
+      input: priorities.BatchPriorityUpdateSchema,
+      handler: async ({ input, context }) => {
+        return priorities.batchUpdatePriorities(context.client, input);
       },
-      {
-        name: "create_project",
-        description: "Create a new project",
-        inputSchema: zodToJsonSchema(projects.CreateProjectSchema),
+    },
+
+    // Dependency Operations
+    manageItemDependencies: {
+      description: 'Manage dependencies between project items',
+      input: dependencies.DependencyManagementSchema,
+      handler: async ({ input, context }) => {
+        return dependencies.manageItemDependencies(context.client, input);
       },
-      {
-        name: "get_project_fields",
-        description: "Get fields for a project",
-        inputSchema: zodToJsonSchema(projects.GetProjectFieldsSchema),
+    },
+    analyzeDependencies: {
+      description: 'Analyze dependencies in a project',
+      input: dependencies.DependencyAnalysisSchema,
+      handler: async ({ input, context }) => {
+        return dependencies.analyzeDependencies(context.client, input);
       },
-      {
-        name: "update_project_field",
-        description: "Update a project field",
-        inputSchema: zodToJsonSchema(projects.UpdateProjectFieldSchema),
+    },
+
+    // Metrics Operations
+    generateProjectMetrics: {
+      description: 'Generate metrics for a project',
+      input: metrics.ProjectMetricsSchema,
+      handler: async ({ input, context }) => {
+        return metrics.generateProjectMetrics(context.client, input);
       },
-      {
-        name: "add_project_item",
-        description: "Add an item to a project",
-        inputSchema: zodToJsonSchema(projectItems.AddProjectItemSchema),
-      },
-      {
-        name: "delete_project_item",
-        description: "Delete an item from a project",
-        inputSchema: zodToJsonSchema(projectItems.DeleteProjectItemSchema),
-      },
-      {
-        name: "list_project_items",
-        description: "List items in a project",
-        inputSchema: zodToJsonSchema(projectItems.ListProjectItemsSchema),
-      },
-      {
-        name: "create_project_view",
-        description: "Create a new project view",
-        inputSchema: zodToJsonSchema(projectViews.CreateProjectViewSchema),
-      },
-      {
-        name: "update_project_view",
-        description: "Update a project view",
-        inputSchema: zodToJsonSchema(projectViews.UpdateProjectViewSchema),
-      },
-      {
-        name: "delete_project_view",
-        description: "Delete a project view",
-        inputSchema: zodToJsonSchema(projectViews.DeleteProjectViewSchema),
-      },
-      {
-        name: "list_project_views",
-        description: "List views in a project",
-        inputSchema: zodToJsonSchema(projectViews.ListProjectViewsSchema),
-      },
-      {
-        name: "assess_item_priority",
-        description: "Assess and update the priority of a project item based on multiple criteria",
-        inputSchema: zodToJsonSchema(priorities.PriorityAssessmentSchema),
-      },
-      {
-        name: "manage_item_dependencies",
-        description: "Manage dependencies between project items",
-        inputSchema: zodToJsonSchema(dependencies.DependencyManagementSchema),
-      },
-      {
-        name: "analyze_dependencies",
-        description: "Analyze dependencies in a project",
-        inputSchema: zodToJsonSchema(dependencies.DependencyAnalysisSchema),
-      },
-      {
-        name: "generate_project_metrics",
-        description: "Generate metrics for a project",
-        inputSchema: zodToJsonSchema(metrics.ProjectMetricsSchema),
-      },
-    ],
-  };
+    },
+  },
 });
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  try {
-    if (!request.params.arguments) {
-      throw new Error("Arguments are required");
-    }
-
-    switch (request.params.name) {
-      case "list_organization_projects": {
-        const args = projects.ListProjectsSchema.parse(request.params.arguments);
-        const { organization, ...options } = args;
-        const result = await projects.listOrganizationProjects(organization, options);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "list_user_projects": {
-        const args = projects.ListUserProjectsSchema.parse(request.params.arguments);
-        const result = await projects.listUserProjects(args);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "create_project": {
-        const args = projects.CreateProjectSchema.parse(request.params.arguments);
-        const { owner, ...options } = args;
-        const result = await projects.createProject(owner, options);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "get_project_fields": {
-        const args = projects.GetProjectFieldsSchema.parse(request.params.arguments);
-        const result = await projects.getProjectFields(args.owner, args.project_number);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "update_project_field": {
-        const args = projects.UpdateProjectFieldSchema.parse(request.params.arguments);
-        const result = await projects.updateProjectField(
-          args.project_id,
-          args.item_id,
-          args.field_id,
-          args.value
-        );
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "add_project_item": {
-        const args = projectItems.AddProjectItemSchema.parse(request.params.arguments);
-        const result = await projectItems.addProjectItem(
-          args.project_id,
-          args.content_id,
-          args.content_type
-        );
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "delete_project_item": {
-        const args = projectItems.DeleteProjectItemSchema.parse(request.params.arguments);
-        const result = await projectItems.deleteProjectItem(args.project_id, args.item_id);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "list_project_items": {
-        const args = projectItems.ListProjectItemsSchema.parse(request.params.arguments);
-        const { project_id, ...options } = args;
-        const result = await projectItems.listProjectItems(project_id, options);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "create_project_view": {
-        const args = projectViews.CreateProjectViewSchema.parse(request.params.arguments);
-        const result = await projectViews.createProjectView(
-          args.project_id,
-          args.name,
-          args.layout
-        );
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "update_project_view": {
-        const args = projectViews.UpdateProjectViewSchema.parse(request.params.arguments);
-        const result = await projectViews.updateProjectView(
-          args.project_id,
-          args.view_id,
-          args.name,
-          args.layout
-        );
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "delete_project_view": {
-        const args = projectViews.DeleteProjectViewSchema.parse(request.params.arguments);
-        const result = await projectViews.deleteProjectView(args.project_id, args.view_id);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "list_project_views": {
-        const args = projectViews.ListProjectViewsSchema.parse(request.params.arguments);
-        const result = await projectViews.listProjectViews(args.project_id);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "assess_item_priority": {
-        const args = priorities.PriorityAssessmentSchema.parse(request.params.arguments);
-        const result = await priorities.assessItemPriority(
-          args.project_id,
-          args.item_id,
-          args.criteria
-        );
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "manage_item_dependencies": {
-        const args = dependencies.DependencyManagementSchema.parse(request.params.arguments);
-        const result = await dependencies.manageItemDependencies(
-          args.project_id,
-          args.item_id,
-          args.dependencies,
-          args.operation
-        );
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "analyze_dependencies": {
-        const args = dependencies.DependencyAnalysisSchema.parse(request.params.arguments);
-        const result = await dependencies.analyzeDependencies(args.project_id);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case "generate_project_metrics": {
-        const args = metrics.ProjectMetricsSchema.parse(request.params.arguments);
-        const result = await metrics.generateProjectMetrics(args.project_id);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      default:
-        throw new Error(`Unknown tool: ${request.params.name}`);
-    }
-  } catch (error) {
-    throw createGitHubError(error);
-  }
-});
-
-async function runServer() {
-  const transport = new StdioServerTransport();
-  await server.listen(transport);
+// Start the server if this file is run directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  server.listen();
 }
-
-runServer().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
