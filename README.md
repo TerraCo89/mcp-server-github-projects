@@ -31,6 +31,12 @@ npm install && npm run build
 
 Create a GitHub personal access token with `project` (read/write) and `repo` (read) scopes.
 
+You can also pin the MCP server to one project by setting:
+
+- `GITHUB_PROJECTS_OWNER` - org/user login that owns the project
+- `GITHUB_PROJECTS_PROJECT_NUMBER` - the GitHub Projects v2 number
+- `GITHUB_PROJECTS_PROJECT_ID` - optional GraphQL node id override
+
 ### Use with Claude Desktop / Claude Code
 
 ```json

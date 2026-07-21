@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { GraphQLClient } from '../common/utils.js';
 import { createGitHubError } from '../common/errors.js';
+import { resolveGithubProjectId } from '../common/utils.js';
 
 // Schema for dependency management
 export const DependencyManagementSchema = z.object({
-  project_id: z.string(),
+  project_id: z.string().optional(),
   item_id: z.string(),
   dependencies: z.object({
     blocks: z.array(z.string()).optional(),
@@ -15,7 +16,7 @@ export const DependencyManagementSchema = z.object({
 
 // Schema for dependency analysis
 export const DependencyAnalysisSchema = z.object({
-  project_id: z.string(),
+  project_id: z.string().optional(),
   criteria: z.object({
     check_cycles: z.boolean().optional(),
     check_missing: z.boolean().optional(),
@@ -30,6 +31,7 @@ export async function manageItemDependencies(
   client: GraphQLClient,
   args: z.infer<typeof DependencyManagementSchema>
 ) {
+  const projectId = await resolveGithubProjectId({ projectId: args.project_id });
   const mutation = `
     mutation UpdateProjectItemDependencies($projectId: ID!, $itemId: ID!, $dependencies: ProjectV2ItemDependencyInput!) {
       updateProjectV2ItemDependencies(
@@ -48,7 +50,7 @@ export async function manageItemDependencies(
 
   try {
     await client.request(mutation, {
-      projectId: args.project_id,
+      projectId,
       itemId: args.item_id,
       dependencies: {
         blocks: args.dependencies.blocks,
@@ -73,6 +75,7 @@ export async function analyzeDependencies(
   client: GraphQLClient,
   args: z.infer<typeof DependencyAnalysisSchema>
 ) {
+  const projectId = await resolveGithubProjectId({ projectId: args.project_id });
   const query = `
     query GetProjectDependencies($projectId: ID!) {
       node(id: $projectId) {
@@ -103,7 +106,7 @@ export async function analyzeDependencies(
 
   try {
     const response = await client.request(query, {
-      projectId: args.project_id
+      projectId
     });
 
     const analysis = {

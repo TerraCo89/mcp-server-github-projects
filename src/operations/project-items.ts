@@ -1,20 +1,20 @@
 import { z } from "zod";
-import { githubRequest } from "../common/utils.js";
+import { githubRequest, resolveGithubProjectId } from "../common/utils.js";
 
 // Schema Definitions
 export const AddProjectItemSchema = z.object({
-  project_id: z.string(),
+  project_id: z.string().optional(),
   content_id: z.string(),
   content_type: z.enum(["ISSUE", "PULL_REQUEST"]),
 });
 
 export const DeleteProjectItemSchema = z.object({
-  project_id: z.string(),
+  project_id: z.string().optional(),
   item_id: z.string(),
 });
 
 export const ListProjectItemsSchema = z.object({
-  project_id: z.string(),
+  project_id: z.string().optional(),
   page: z.number().optional(),
   per_page: z.number().optional(),
 });
@@ -123,17 +123,18 @@ const LIST_PROJECT_ITEMS = `
 
 // Function Implementations
 export async function addProjectItem(
-  project_id: string,
+  project_id: string | undefined,
   content_id: string,
   content_type: z.infer<typeof AddProjectItemSchema>["content_type"]
 ) {
+  const resolvedProjectId = await resolveGithubProjectId({ projectId: project_id });
   const itemResponse = await githubRequest("https://api.github.com/graphql", {
     method: "POST",
     body: {
       query: ADD_PROJECT_ITEM,
       variables: {
         input: {
-          projectId: project_id,
+          projectId: resolvedProjectId,
           contentId: content_id
         }
       }
@@ -144,14 +145,15 @@ export async function addProjectItem(
   return response.data.addProjectV2Item.item;
 }
 
-export async function deleteProjectItem(project_id: string, item_id: string) {
+export async function deleteProjectItem(project_id: string | undefined, item_id: string) {
+  const resolvedProjectId = await resolveGithubProjectId({ projectId: project_id });
   return githubRequest("https://api.github.com/graphql", {
     method: "POST",
     body: {
       query: DELETE_PROJECT_ITEM,
       variables: {
         input: {
-          projectId: project_id,
+          projectId: resolvedProjectId,
           itemId: item_id
         }
       }
@@ -160,9 +162,10 @@ export async function deleteProjectItem(project_id: string, item_id: string) {
 }
 
 export async function listProjectItems(
-  project_id: string,
+  project_id: string | undefined,
   options: Omit<z.infer<typeof ListProjectItemsSchema>, "project_id">
 ) {
+  const resolvedProjectId = await resolveGithubProjectId({ projectId: project_id });
   const perPage = options.per_page || 20;
   
   const itemsResponse = await githubRequest("https://api.github.com/graphql", {
@@ -170,7 +173,7 @@ export async function listProjectItems(
     body: {
       query: LIST_PROJECT_ITEMS,
       variables: {
-        projectId: project_id,
+        projectId: resolvedProjectId,
         first: perPage
       }
     }
