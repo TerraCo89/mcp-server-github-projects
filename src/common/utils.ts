@@ -102,3 +102,30 @@ export async function resolveGithubProjectId(
 
   throw new Error('GitHub Projects lookup did not return a node_id');
 }
+
+export async function resolveGithubOwnerNodeId(owner?: string) {
+  const resolvedOwner = resolveGithubProjectOwner(owner);
+  if (!resolvedOwner) {
+    throw new Error('owner is required unless GITHUB_PROJECTS_OWNER is set');
+  }
+
+  for (const scope of ['orgs', 'users'] as const) {
+    try {
+      const response = await githubRequest(
+        `https://api.github.com/${scope}/${resolvedOwner}`,
+        { headers: { Accept: 'application/vnd.github+json' } }
+      );
+
+      if (response?.node_id) {
+        return String(response.node_id);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (!message.includes('404') && !message.includes('Not Found')) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error('GitHub owner lookup did not return a node_id');
+}

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { githubRequest, resolveGithubProjectId, resolveGithubProjectOwner } from "../common/utils.js";
+import { githubRequest, resolveGithubProjectId, resolveGithubOwnerNodeId, resolveGithubProjectOwner } from "../common/utils.js";
 
 // Type Definitions
 interface GitHubProjectV2 {
@@ -123,7 +123,7 @@ export const ListProjectsSchema = z.object({
 });
 
 export const CreateProjectSchema = z.object({
-  owner: z.string(),
+  owner: z.string().optional(),
   title: z.string(),
   description: z.string().optional(),
   template: z.string().optional(),
@@ -298,16 +298,17 @@ export async function listOrganizationProjects(
 }
 
 export async function createProject(
-  owner: string,
+  owner: string | undefined,
   options: Omit<z.infer<typeof CreateProjectSchema>, "owner">
 ) {
+  const ownerNodeId = await resolveGithubOwnerNodeId(owner);
   const projectResponse = await githubRequest("https://api.github.com/graphql", {
     method: "POST",
     body: {
       query: CREATE_PROJECT,
       variables: {
         input: {
-          ownerId: owner,
+          ownerId: ownerNodeId,
           title: options.title,
           description: options.description,
           template: options.template

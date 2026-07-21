@@ -131,3 +131,33 @@ test('GitHub Projects env project id avoids lookup requests', async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test('GitHub Projects can create a project from env owner defaults', async () => {
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url: String(url), options });
+    if (calls.length === 1) {
+      return makeResponse({ node_id: 'owner-node-1' });
+    }
+    return makeResponse({ data: { createProjectV2: { projectV2: { id: 'project-1', number: 99 } } } });
+  };
+
+  try {
+    await withEnv({
+      GITHUB_TOKEN: 'token',
+      GITHUB_PROJECTS_OWNER: 'codelaude'
+    }, async () => {
+      const { createProject } = await import('../dist/operations/projects.js');
+      const project = await createProject(undefined, { title: 'Roadmap', description: 'Project board' });
+      assert.deepEqual(project, { id: 'project-1', number: 99 });
+    });
+
+    assert.equal(calls.length, 2);
+    assert.match(calls[0].url, /\/orgs\/codelaude$/);
+    assert.equal(calls[1].url, 'https://api.github.com/graphql');
+    assert.match(String(calls[1].options.body), /owner-node-1/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
