@@ -26,7 +26,7 @@ interface ProjectFieldsResponse {
 
 interface ListProjectsResponse {
   data: {
-    organization: {
+    organization?: {
       projectsV2: {
         nodes: Array<{
           id: string;
@@ -39,7 +39,21 @@ interface ListProjectsResponse {
           };
         }>;
       };
-    };
+    } | null;
+    user?: {
+      projectsV2: {
+        nodes: Array<{
+          id: string;
+          title: string;
+          shortDescription: string;
+          public: boolean;
+          closed: boolean;
+          items: {
+            totalCount: number;
+          };
+        }>;
+      };
+    } | null;
   };
 }
 
@@ -148,8 +162,22 @@ const GET_PROJECT_FIELDS = `
 `;
 
 const LIST_ORGANIZATION_PROJECTS = `
-  query ListOrgProjects($org: String!, $first: Int!) {
-    organization(login: $org) {
+  query ListOwnerProjects($owner: String!, $first: Int!) {
+    organization(login: $owner) {
+      projectsV2(first: $first) {
+        nodes {
+          id
+          title
+          shortDescription
+          public
+          closed
+          items {
+            totalCount
+          }
+        }
+      }
+    }
+    user(login: $owner) {
       projectsV2(first: $first) {
         nodes {
           id
@@ -259,14 +287,14 @@ export async function listOrganizationProjects(
     body: {
       query: LIST_ORGANIZATION_PROJECTS,
       variables: {
-        org: resolvedOrganization,
+        owner: resolvedOrganization,
         first: perPage
       }
     }
   });
 
   const response = projectsResponse as ListProjectsResponse;
-  return response.data.organization.projectsV2.nodes;
+  return response.data.organization?.projectsV2.nodes ?? response.data.user?.projectsV2.nodes ?? [];
 }
 
 export async function createProject(

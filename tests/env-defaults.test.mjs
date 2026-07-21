@@ -62,6 +62,50 @@ test('GitHub Projects env defaults resolve owner + project number', async () => 
   }
 });
 
+test('GitHub Projects env defaults fall back from org to user projects', async () => {
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url: String(url), options });
+    if (calls.length === 1) {
+      return {
+        ok: false,
+        status: 404,
+        async json() {
+          return {};
+        },
+        async text() {
+          return 'Not Found';
+        }
+      };
+    }
+    if (calls.length === 2) {
+      return makeResponse({ node_id: 'user-project-node-1' });
+    }
+    return makeResponse({ data: { node: { fields: { nodes: [] } } } });
+  };
+
+  try {
+    await withEnv({
+      GITHUB_TOKEN: 'token',
+      GITHUB_PROJECTS_OWNER: 'jwebcoder',
+      GITHUB_PROJECTS_PROJECT_NUMBER: '12'
+    }, async () => {
+      const { getProjectFields } = await import('../dist/operations/projects.js');
+      const fields = await getProjectFields();
+      assert.deepEqual(fields, []);
+    });
+
+    assert.equal(calls.length, 3);
+    assert.match(calls[0].url, /\/orgs\/jwebcoder\/projects\/v2\/12$/);
+    assert.match(calls[1].url, /\/users\/jwebcoder\/projects\/v2\/12$/);
+    assert.equal(calls[2].url, 'https://api.github.com/graphql');
+    assert.match(String(calls[2].options.body), /user-project-node-1/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('GitHub Projects env project id avoids lookup requests', async () => {
   const calls = [];
   const originalFetch = globalThis.fetch;

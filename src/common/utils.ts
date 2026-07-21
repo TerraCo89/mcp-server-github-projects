@@ -82,14 +82,23 @@ export async function resolveGithubProjectId(
     throw new Error('owner and project number are required unless GITHUB_PROJECTS_PROJECT_ID is set');
   }
 
-  const response = await githubRequest(
-    `https://api.github.com/orgs/${owner}/projects/v2/${projectNumber}`,
-    { headers: { Accept: 'application/vnd.github.project-beta+json' } }
-  );
+  for (const scope of ['orgs', 'users'] as const) {
+    try {
+      const response = await githubRequest(
+        `https://api.github.com/${scope}/${owner}/projects/v2/${projectNumber}`,
+        { headers: { Accept: 'application/vnd.github.project-beta+json' } }
+      );
 
-  if (!response?.node_id) {
-    throw new Error('GitHub Projects lookup did not return a node_id');
+      if (response?.node_id) {
+        return String(response.node_id);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (!message.includes('404') && !message.includes('Not Found')) {
+        throw error;
+      }
+    }
   }
 
-  return String(response.node_id);
+  throw new Error('GitHub Projects lookup did not return a node_id');
 }
