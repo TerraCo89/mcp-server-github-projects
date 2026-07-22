@@ -37,7 +37,7 @@ test('GitHub Projects env defaults resolve owner + project number', async () => 
   globalThis.fetch = async (url, options) => {
     calls.push({ url: String(url), options });
     if (calls.length === 1) {
-      return makeResponse({ node_id: 'project-node-123' });
+      return makeResponse({ data: { organization: { projectV2: { id: 'project-node-123' } }, user: null } });
     }
     return makeResponse({ data: { node: { fields: { nodes: [{ id: 'field-1', name: 'Status', dataType: 'SINGLE_SELECT' }] } } } });
   };
@@ -54,7 +54,9 @@ test('GitHub Projects env defaults resolve owner + project number', async () => 
     });
 
     assert.equal(calls.length, 2);
-    assert.match(calls[0].url, /\/orgs\/codelaude\/projects\/v2\/7$/);
+    assert.equal(calls[0].url, 'https://api.github.com/graphql');
+    assert.match(String(calls[0].options.body), /"owner":"codelaude"/);
+    assert.match(String(calls[0].options.body), /"number":7/);
     assert.equal(calls[1].url, 'https://api.github.com/graphql');
     assert.match(String(calls[1].options.body), /project-node-123/);
   } finally {
@@ -62,25 +64,13 @@ test('GitHub Projects env defaults resolve owner + project number', async () => 
   }
 });
 
-test('GitHub Projects env defaults fall back from org to user projects', async () => {
+test('GitHub Projects env defaults resolve user-owned projects', async () => {
   const calls = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, options) => {
     calls.push({ url: String(url), options });
     if (calls.length === 1) {
-      return {
-        ok: false,
-        status: 404,
-        async json() {
-          return {};
-        },
-        async text() {
-          return 'Not Found';
-        }
-      };
-    }
-    if (calls.length === 2) {
-      return makeResponse({ node_id: 'user-project-node-1' });
+      return makeResponse({ data: { organization: null, user: { projectV2: { id: 'user-project-node-1' } } } });
     }
     return makeResponse({ data: { node: { fields: { nodes: [] } } } });
   };
@@ -96,11 +86,12 @@ test('GitHub Projects env defaults fall back from org to user projects', async (
       assert.deepEqual(fields, []);
     });
 
-    assert.equal(calls.length, 3);
-    assert.match(calls[0].url, /\/orgs\/jwebcoder\/projects\/v2\/12$/);
-    assert.match(calls[1].url, /\/users\/jwebcoder\/projects\/v2\/12$/);
-    assert.equal(calls[2].url, 'https://api.github.com/graphql');
-    assert.match(String(calls[2].options.body), /user-project-node-1/);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].url, 'https://api.github.com/graphql');
+    assert.match(String(calls[0].options.body), /"owner":"jwebcoder"/);
+    assert.match(String(calls[0].options.body), /"number":12/);
+    assert.equal(calls[1].url, 'https://api.github.com/graphql');
+    assert.match(String(calls[1].options.body), /user-project-node-1/);
   } finally {
     globalThis.fetch = originalFetch;
   }
