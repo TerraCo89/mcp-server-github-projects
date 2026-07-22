@@ -82,25 +82,42 @@ export async function resolveGithubProjectId(
     throw new Error('owner and project number are required unless GITHUB_PROJECTS_PROJECT_ID is set');
   }
 
-  for (const scope of ['orgs', 'users'] as const) {
-    try {
-      const response = await githubRequest(
-        `https://api.github.com/${scope}/${owner}/projects/v2/${projectNumber}`,
-        { headers: { Accept: 'application/vnd.github.project-beta+json' } }
-      );
+  const response = await githubRequest('https://api.github.com/graphql', {
+    method: 'POST',
+    body: {
+      query: `
+        query($owner: String!, $number: Int!) {
+          organization(login: $owner) {
+            projectV2(number: $number) {
+              id
+            }
+          }
+          user(login: $owner) {
+            projectV2(number: $number) {
+              id
+            }
+          }
+        }
+      `,
+      variables: { owner, number: projectNumber },
+    },
+  });
 
-      if (response?.node_id) {
-        return String(response.node_id);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '';
-      if (!message.includes('404') && !message.includes('Not Found')) {
-        throw error;
-      }
-    }
+  const resolvedProjectId = response?.data?.organization?.projectV2?.id ?? response?.data?.user?.projectV2?.id;
+  if (resolvedProjectId) {
+    return String(resolvedProjectId);
   }
 
-  throw new Error('GitHub Projects lookup did not return a node_id');
+  const errors = Array.isArray(response?.errors)
+    ? response.errors
+        .map((error: { message?: string }) => error?.message)
+        .filter(Boolean)
+        .join('; ')
+    : '';
+
+  throw new Error(errors
+    ? `GitHub Projects lookup did not return an id: ${errors}`
+    : 'GitHub Projects lookup did not return an id');
 }
 
 export async function resolveGithubOwnerNodeId(owner?: string) {
