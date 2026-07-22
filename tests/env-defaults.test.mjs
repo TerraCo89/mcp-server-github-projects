@@ -131,7 +131,10 @@ test('GitHub Projects can create a project from env owner defaults', async () =>
     if (calls.length === 1) {
       return makeResponse({ node_id: 'owner-node-1' });
     }
-    return makeResponse({ data: { createProjectV2: { projectV2: { id: 'project-1', number: 99 } } } });
+    if (calls.length === 2) {
+      return makeResponse({ data: { createProjectV2: { projectV2: { id: 'project-1', number: 99 } } } });
+    }
+    return makeResponse({ data: { updateProjectV2: { projectV2: { id: 'project-1', number: 99, shortDescription: 'Project board' } } } });
   };
 
   try {
@@ -141,13 +144,15 @@ test('GitHub Projects can create a project from env owner defaults', async () =>
     }, async () => {
       const { createProject } = await import('../dist/operations/projects.js');
       const project = await createProject(undefined, { title: 'Roadmap', description: 'Project board' });
-      assert.deepEqual(project, { id: 'project-1', number: 99 });
+      assert.deepEqual(project, { id: 'project-1', number: 99, shortDescription: 'Project board' });
     });
 
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 3);
     assert.match(calls[0].url, /\/orgs\/codelaude$/);
     assert.equal(calls[1].url, 'https://api.github.com/graphql');
     assert.match(String(calls[1].options.body), /owner-node-1/);
+    assert.equal(calls[2].url, 'https://api.github.com/graphql');
+    assert.match(String(calls[2].options.body), /shortDescription/);
   } finally {
     globalThis.fetch = originalFetch;
   }

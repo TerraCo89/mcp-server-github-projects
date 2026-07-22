@@ -61,41 +61,6 @@ export const server = createServer({
         );
       },
     },
-    createProjectView: {
-      description: 'Create a new view in a GitHub Project',
-      input: projectViews.CreateProjectViewSchema,
-      handler: async ({ input, context }) => {
-        return projectViews.createProjectView(
-          input.project_id,
-          input.name,
-          input.layout
-        );
-      },
-    },
-    updateProjectView: {
-      description: 'Update an existing view in a GitHub Project',
-      input: projectViews.UpdateProjectViewSchema,
-      handler: async ({ input, context }) => {
-        return projectViews.updateProjectView(
-          input.project_id,
-          input.view_id,
-          {
-            name: input.name,
-            layout: input.layout
-          }
-        );
-      },
-    },
-    deleteProjectView: {
-      description: 'Delete a view from a GitHub Project',
-      input: projectViews.DeleteProjectViewSchema,
-      handler: async ({ input, context }) => {
-        return projectViews.deleteProjectView(
-          input.project_id,
-          input.view_id
-        );
-      },
-    },
     listProjectViews: {
       description: 'List all views in a GitHub Project',
       input: projectViews.ListProjectViewsSchema,
@@ -195,7 +160,6 @@ export const server = createServer({
         return projects.createProject(input.owner, {
           title: input.title,
           description: input.description,
-          template: input.template
         });
       },
     },

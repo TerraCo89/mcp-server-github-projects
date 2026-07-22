@@ -33,6 +33,9 @@ global.fetch = async (url, options = {}) => {
       }
     });
   }
+  if (query.includes('ResolveDependencyIssue')) {
+    return response({ data: { node: { __typename: 'ProjectV2Item', content: { __typename: 'Issue', id: `I_${request.variables.id}` } } } });
+  }
 
   if (query.includes('AddProjectV2DraftIssue')) {
     return response({ data: { addProjectV2DraftIssue: { projectItem: { id: 'PVTI_DRAFT' } } } });
@@ -49,6 +52,12 @@ global.fetch = async (url, options = {}) => {
   if (query.includes('UpdateIssue')) {
     return response({ data: { updateIssue: { issue: { id: 'I_1', number: 1, title: 'Issue', body: 'Body', state: 'CLOSED' } } } });
   }
+  if (query.includes('AddBlockedBy')) {
+    return response({ data: { addBlockedBy: { clientMutationId: null } } });
+  }
+  if (query.includes('GetPriorityField')) {
+    return response({ data: { node: { fields: { nodes: [{ id: 'FIELD_PRIORITY', name: 'Priority', options: [{ id: 'OPTION_HIGH', name: 'high' }, { id: 'OPTION_MEDIUM', name: 'medium' }, { id: 'OPTION_LOW', name: 'low' }] }] } } } });
+  }
   if (query.includes('AddProjectItem')) {
     return response({ data: { addProjectV2Item: { item: { id: 'PVTI_ADDED' } } } });
   }
@@ -64,20 +73,8 @@ global.fetch = async (url, options = {}) => {
   if (query.includes('GetProjectFields') || query.includes('ListFields')) {
     return response({ data: { node: { fields: { nodes: [{ id: 'FIELD_1', name: 'Status', dataType: 'SINGLE_SELECT', options: [] }] } } } });
   }
-  if (query.includes('CreateProjectView')) {
-    return response({ data: { createProjectV2View: { projectView: { id: 'VIEW_1', name: 'Board', layout: 'BOARD_LAYOUT' } } } });
-  }
-  if (query.includes('UpdateProjectView')) {
-    return response({ data: { updateProjectV2View: { projectView: { id: 'VIEW_1', name: 'Board', layout: 'BOARD_LAYOUT' } } } });
-  }
-  if (query.includes('DeleteProjectView')) {
-    return response({ data: { deleteProjectV2View: { deletedViewId: 'VIEW_1' } } });
-  }
   if (query.includes('ListProjectViews') || query.includes('ListViews')) {
     return response({ data: { node: { views: { nodes: [{ id: 'VIEW_1', name: 'Board', layout: 'BOARD_LAYOUT', fields: { nodes: [] } }] } } } });
-  }
-  if (query.includes('UpdateProjectItemDependencies')) {
-    return response({ data: { updateProjectV2ItemDependencies: { projectV2Item: { id: 'PVTI_1' } } } });
   }
   if (query.includes('GetProjectDependencies') || query.includes('GetProjectMetrics')) {
     return response({ data: { node: { items: { nodes: [] } } } });
@@ -87,6 +84,9 @@ global.fetch = async (url, options = {}) => {
   }
   if (query.includes('CreateProject')) {
     return response({ data: { createProjectV2: { projectV2: { id: 'PVT_NEW', number: 2 } } } });
+  }
+  if (query.includes('mutation UpdateProject(')) {
+    return response({ data: { updateProjectV2: { projectV2: { id: 'PVT_NEW', number: 2, shortDescription: 'Plan' } } } });
   }
   if (query.includes('ListUserProjects')) {
     return response({ data: { viewer: { projectsV2: { nodes: [] } } } });

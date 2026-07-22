@@ -30,9 +30,7 @@ test('GitHub Projects MCP exposes its complete tool and resource surface', async
       'createDraftIssue',
       'createIssue',
       'createProject',
-      'createProjectView',
       'deleteProjectItem',
-      'deleteProjectView',
       'generateProjectMetrics',
       'getProjectFields',
       'listOrganizationProjects',
@@ -42,8 +40,7 @@ test('GitHub Projects MCP exposes its complete tool and resource surface', async
       'manageItemDependencies',
       'updateDraftIssue',
       'updateIssue',
-      'updateProjectField',
-      'updateProjectView'
+      'updateProjectField'
     ].sort());
 
     const { resourceTemplates } = await client.listResourceTemplates();

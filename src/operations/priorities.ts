@@ -7,6 +7,7 @@ import { resolveGithubProjectId } from '../common/utils.js';
 export const PriorityAssessmentSchema = z.object({
   project_id: z.string().optional(),
   item_id: z.string(),
+  priority_field_name: z.string().default('Priority'),
   criteria: z.object({
     business_value: z.enum(['high', 'medium', 'low']),
     technical_complexity: z.enum(['high', 'medium', 'low']),
@@ -17,47 +18,79 @@ export const PriorityAssessmentSchema = z.object({
 // Schema for batch priority updates
 export const BatchPriorityUpdateSchema = z.object({
   project_id: z.string().optional(),
+  priority_field_name: z.string().default('Priority'),
   items: z.array(z.object({
     item_id: z.string(),
     priority: z.enum(['high', 'medium', 'low'])
   }))
 });
 
-/**
- * Assess and update the priority of a project item based on multiple criteria
- */
+const PRIORITY_FIELD_QUERY = `
+  query GetPriorityField($projectId: ID!) {
+    node(id: $projectId) {
+      ... on ProjectV2 {
+        fields(first: 100) {
+          nodes {
+            ... on ProjectV2SingleSelectField {
+              id
+              name
+              options { id name }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+const UPDATE_PRIORITY = `
+  mutation UpdateProjectItemPriority($input: UpdateProjectV2ItemFieldValueInput!) {
+    updateProjectV2ItemFieldValue(input: $input) {
+      projectV2Item { id }
+    }
+  }
+`;
+
+async function getPriorityField(client: GraphQLClient, projectId: string, fieldName: string) {
+  const response = await client.request(PRIORITY_FIELD_QUERY, { projectId });
+  const fields = response?.data?.node?.fields?.nodes ?? [];
+  const field = fields.find((candidate: { name?: string }) =>
+    candidate.name?.toLowerCase() === fieldName.toLowerCase());
+  if (!field?.id || !Array.isArray(field.options)) {
+    throw new Error(`Single-select field '${fieldName}' was not found in the project`);
+  }
+  return field as { id: string; options: Array<{ id: string; name: string }> };
+}
+
+async function updatePriority(
+  client: GraphQLClient,
+  projectId: string,
+  itemId: string,
+  field: { id: string; options: Array<{ id: string; name: string }> },
+  priority: string
+) {
+  const option = field.options.find((candidate) => candidate.name.toLowerCase() === priority.toLowerCase());
+  if (!option) throw new Error(`Priority option '${priority}' was not found`);
+  await client.request(UPDATE_PRIORITY, {
+    input: {
+      projectId,
+      itemId,
+      fieldId: field.id,
+      value: { singleSelectOptionId: option.id },
+    }
+  });
+}
+
 export async function assessItemPriority(
   client: GraphQLClient,
   args: z.infer<typeof PriorityAssessmentSchema>
 ) {
   const projectId = await resolveGithubProjectId({ projectId: args.project_id });
-  // Calculate overall priority based on criteria
   const priority = calculateOverallPriority(args.criteria);
-  
-  // Update the priority field in the project
-  const mutation = `
-    mutation UpdateProjectItemPriority($projectId: ID!, $itemId: ID!, $priority: String!) {
-      updateProjectV2ItemFieldValue(
-        input: {
-          projectId: $projectId
-          itemId: $itemId
-          fieldId: "priority" # This would need to be dynamically fetched
-          value: { text: $priority }
-        }
-      ) {
-        projectV2Item {
-          id
-        }
-      }
-    }
-  `;
 
   try {
-      await client.request(mutation, {
-      projectId,
-      itemId: args.item_id,
-      priority
-    });
+    const field = await getPriorityField(client, projectId, args.priority_field_name);
+    await updatePriority(client, projectId, args.item_id, field, priority);
 
     return { success: true, priority };
   } catch (error) {
@@ -77,31 +110,11 @@ export async function batchUpdatePriorities(
 ) {
   const projectId = await resolveGithubProjectId({ projectId: args.project_id });
   const results = [];
+  const field = await getPriorityField(client, projectId, args.priority_field_name);
   
   for (const item of args.items) {
     try {
-      const mutation = `
-        mutation UpdateProjectItemPriority($projectId: ID!, $itemId: ID!, $priority: String!) {
-          updateProjectV2ItemFieldValue(
-            input: {
-              projectId: $projectId
-              itemId: $itemId
-              fieldId: "priority" # This would need to be dynamically fetched
-              value: { text: $priority }
-            }
-          ) {
-            projectV2Item {
-              id
-            }
-          }
-        }
-      `;
-
-      await client.request(mutation, {
-        projectId,
-        itemId: item.item_id,
-        priority: item.priority
-      });
+      await updatePriority(client, projectId, item.item_id, field, item.priority);
 
       results.push({ item_id: item.item_id, success: true });
     } catch (error) {

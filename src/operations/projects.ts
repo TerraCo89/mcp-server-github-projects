@@ -107,13 +107,15 @@ export const UpdateProjectFieldSchema = z.object({
   project_id: z.string(),
   item_id: z.string(),
   field_id: z.string(),
-  value: z.union([
-    z.string(),
-    z.number(),
-    z.object({
-      singleSelectOptionId: z.string()
-    })
-  ]),
+  value: z.object({
+    text: z.string().optional(),
+    number: z.number().optional(),
+    date: z.string().optional(),
+    singleSelectOptionId: z.string().optional(),
+    iterationId: z.string().optional(),
+  }).refine((value) => Object.values(value).filter((item) => item !== undefined).length === 1, {
+    message: 'value must contain exactly one supported field value',
+  }),
 });
 
 export const ListProjectsSchema = z.object({
@@ -126,7 +128,6 @@ export const CreateProjectSchema = z.object({
   owner: z.string().optional(),
   title: z.string(),
   description: z.string().optional(),
-  template: z.string().optional(),
 });
 
 export const ListUserProjectsSchema = z.object({
@@ -210,6 +211,18 @@ const CREATE_PROJECT = `
       projectV2 {
         id
         number
+      }
+    }
+  }
+`;
+
+const UPDATE_PROJECT = `
+  mutation UpdateProject($input: UpdateProjectV2Input!) {
+    updateProjectV2(input: $input) {
+      projectV2 {
+        id
+        number
+        shortDescription
       }
     }
   }
@@ -310,15 +323,28 @@ export async function createProject(
         input: {
           ownerId: ownerNodeId,
           title: options.title,
-          description: options.description,
-          template: options.template
         }
       }
     }
   });
 
   const response = projectResponse as CreateProjectResponse;
-  return response.data.createProjectV2.projectV2;
+  const project = response.data.createProjectV2.projectV2;
+  if (!options.description) return project;
+
+  const updateResponse = await githubRequest("https://api.github.com/graphql", {
+    method: "POST",
+    body: {
+      query: UPDATE_PROJECT,
+      variables: {
+        input: {
+          projectId: project.id,
+          shortDescription: options.description,
+        }
+      }
+    }
+  });
+  return (updateResponse as any).data.updateProjectV2.projectV2;
 }
 
 export async function listUserProjects(
