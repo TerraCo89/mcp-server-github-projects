@@ -31,6 +31,8 @@ export const CreateIssueSchema = z.object({
 const RESOLVE_CONTENT_ID = `
   query ResolveContentId($itemId: ID!) {
     node(id: $itemId) {
+      __typename
+      id
       ... on ProjectV2Item {
         content {
           __typename
@@ -150,7 +152,13 @@ async function resolveContentId(id: string): Promise<{ __typename: string; id: s
 
   if (node.__typename === 'ProjectV2Item') {
     if (!node.content) throw new Error(`Item ${id} has no resolvable content`);
+    if (!node.content.id || node.content.__typename !== 'DraftIssue' && node.content.__typename !== 'Issue') {
+      throw new Error(`Item ${id} does not contain an editable draft issue or issue`);
+    }
     return { __typename: node.content.__typename, id: node.content.id };
+  }
+  if (!node.id || node.__typename !== 'DraftIssue' && node.__typename !== 'Issue') {
+    throw new Error(`Item ${id} is not an editable draft issue or issue`);
   }
   return { __typename: node.__typename, id: node.id };
 }
