@@ -28,6 +28,22 @@ export const CreateIssueSchema = z.object({
   project_id: z.string().optional(),
 });
 
+const RESOLVE_CONTENT_ID = `
+  query ResolveContentId($itemId: ID!) {
+    node(id: $itemId) {
+      ... on ProjectV2Item {
+        content {
+          __typename
+          ... on DraftIssue { id }
+          ... on Issue { id }
+        }
+      }
+      ... on DraftIssue { id }
+      ... on Issue { id }
+    }
+  }
+`;
+
 const GET_REPO_ID = `
   query GetRepoId($owner: String!, $name: String!) {
     repository(owner: $owner, name: $name) {
@@ -121,13 +137,29 @@ export async function createDraftIssue(
   return (response as any).data.createDraftIssue.draftIssue;
 }
 
+async function resolveContentId(id: string): Promise<{ __typename: string; id: string }> {
+  const response = await githubRequest("https://api.github.com/graphql", {
+    method: "POST",
+    body: { query: RESOLVE_CONTENT_ID, variables: { itemId: id } }
+  });
+  const node = (response as any).data?.node;
+  if (!node) throw new Error(`Item not found: ${id}`);
+
+  if (node.__typename === 'ProjectV2Item') {
+    if (!node.content) throw new Error(`Item ${id} has no resolvable content`);
+    return { __typename: node.content.__typename, id: node.content.id };
+  }
+  return { __typename: node.__typename, id: node.id };
+}
+
 export async function updateDraftIssue(
   item_id: string,
   title: string | undefined,
   body: string | undefined
 ) {
+  const { id: contentId } = await resolveContentId(item_id);
   const variables: Record<string, any> = {
-    input: { id: item_id }
+    input: { id: contentId }
   };
   if (title !== undefined) variables.input.title = title;
   if (body !== undefined) variables.input.body = body;
@@ -140,7 +172,12 @@ export async function updateDraftIssue(
     }
   });
 
-  return (response as any).data.updateDraftIssue.draftIssue;
+  const result = (response as any).data?.updateDraftIssue?.draftIssue;
+  if (!result) {
+    const errors = (response as any).errors;
+    throw new Error(errors ? errors.map((e: any) => e.message).join('; ') : 'Failed to update draft issue');
+  }
+  return result;
 }
 
 export async function updateIssue(
@@ -149,8 +186,9 @@ export async function updateIssue(
   body: string | undefined,
   state: "OPEN" | "CLOSED" | undefined
 ) {
+  const { id: contentId } = await resolveContentId(issue_id);
   const variables: Record<string, any> = {
-    input: { id: issue_id }
+    input: { id: contentId }
   };
   if (title !== undefined) variables.input.title = title;
   if (body !== undefined) variables.input.body = body;
@@ -164,7 +202,12 @@ export async function updateIssue(
     }
   });
 
-  return (response as any).data.updateIssue.issue;
+  const result = (response as any).data?.updateIssue?.issue;
+  if (!result) {
+    const errors = (response as any).errors;
+    throw new Error(errors ? errors.map((e: any) => e.message).join('; ') : 'Failed to update issue');
+  }
+  return result;
 }
 
 export async function createIssue(
