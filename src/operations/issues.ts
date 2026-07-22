@@ -53,20 +53,18 @@ const GET_REPO_ID = `
 `;
 
 const CREATE_DRAFT_ISSUE = `
-  mutation CreateDraftIssue($input: CreateDraftIssueInput!) {
-    createDraftIssue(input: $input) {
-      draftIssue {
+  mutation AddProjectV2DraftIssue($input: AddProjectV2DraftIssueInput!) {
+    addProjectV2DraftIssue(input: $input) {
+      projectItem {
         id
-        title
-        body
       }
     }
   }
 `;
 
 const UPDATE_DRAFT_ISSUE = `
-  mutation UpdateDraftIssue($input: UpdateDraftIssueInput!) {
-    updateDraftIssue(input: $input) {
+  mutation UpdateProjectV2DraftIssue($input: UpdateProjectV2DraftIssueInput!) {
+    updateProjectV2DraftIssue(input: $input) {
       draftIssue {
         id
         title
@@ -134,7 +132,12 @@ export async function createDraftIssue(
       }
     }
   });
-  return (response as any).data.createDraftIssue.draftIssue;
+  const result = (response as any).data?.addProjectV2DraftIssue?.projectItem;
+  if (!result) {
+    const errors = (response as any).errors;
+    throw new Error(errors ? errors.map((e: any) => e.message).join('; ') : 'Failed to create draft issue');
+  }
+  return result;
 }
 
 async function resolveContentId(id: string): Promise<{ __typename: string; id: string }> {
@@ -159,7 +162,7 @@ export async function updateDraftIssue(
 ) {
   const { id: contentId } = await resolveContentId(item_id);
   const variables: Record<string, any> = {
-    input: { id: contentId }
+    input: { draftIssueId: contentId }
   };
   if (title !== undefined) variables.input.title = title;
   if (body !== undefined) variables.input.body = body;
@@ -172,7 +175,7 @@ export async function updateDraftIssue(
     }
   });
 
-  const result = (response as any).data?.updateDraftIssue?.draftIssue;
+  const result = (response as any).data?.updateProjectV2DraftIssue?.draftIssue;
   if (!result) {
     const errors = (response as any).errors;
     throw new Error(errors ? errors.map((e: any) => e.message).join('; ') : 'Failed to update draft issue');
