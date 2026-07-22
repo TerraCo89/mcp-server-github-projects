@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { Client } from '../node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js';
 import { StdioClientTransport } from '../node_modules/@modelcontextprotocol/sdk/dist/esm/client/stdio.js';
 
-test('GitHub Projects MCP exposes item CRUD and field-edit tools', async () => {
+test('GitHub Projects MCP exposes its complete tool and resource surface', async () => {
   const root = process.cwd();
   const server = join(root, 'dist', 'index.js');
   const transport = new StdioClientTransport({
@@ -22,15 +22,41 @@ test('GitHub Projects MCP exposes item CRUD and field-edit tools', async () => {
     const { tools } = await client.listTools();
     const names = tools.map((tool) => tool.name);
 
-    for (const expected of [
-      'listProjectItems',
+    assert.deepEqual(names.sort(), [
+      'analyzeDependencies',
       'addProjectItem',
+      'assessItemPriority',
+      'batchUpdatePriorities',
+      'createDraftIssue',
+      'createIssue',
+      'createProject',
+      'createProjectView',
       'deleteProjectItem',
+      'deleteProjectView',
+      'generateProjectMetrics',
       'getProjectFields',
-      'updateProjectField'
-    ]) {
-      assert.ok(names.includes(expected), `missing MCP tool: ${expected}`);
-    }
+      'listOrganizationProjects',
+      'listProjectItems',
+      'listProjectViews',
+      'listUserProjects',
+      'manageItemDependencies',
+      'updateDraftIssue',
+      'updateIssue',
+      'updateProjectField',
+      'updateProjectView'
+    ].sort());
+
+    const { resourceTemplates } = await client.listResourceTemplates();
+    assert.deepEqual(
+      resourceTemplates.map((template) => template.uriTemplate).sort(),
+      [
+        'github-projects://project/{projectId}',
+        'github-projects://project/{projectId}/fields',
+        'github-projects://project/{projectId}/items',
+        'github-projects://project/{projectId}/items/{itemId}',
+        'github-projects://project/{projectId}/views'
+      ]
+    );
   } finally {
     await transport.close();
   }
