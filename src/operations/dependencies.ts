@@ -103,10 +103,11 @@ export async function manageItemDependencies(
 }
 
 const projectDependenciesQuery = `
-  query GetProjectDependencies($projectId: ID!) {
+  query GetProjectDependencies($projectId: ID!, $after: String) {
     node(id: $projectId) {
       ... on ProjectV2 {
-        items(first: 100) {
+        items(first: 100, after: $after) {
+          pageInfo { hasNextPage endCursor }
           nodes {
             content {
               ... on Issue {
@@ -183,8 +184,14 @@ export async function analyzeDependencies(
 ) {
   const projectId = await resolveGithubProjectId({ projectId: args.project_id });
   try {
-    const response = await client.request(projectDependenciesQuery, { projectId });
-    const issues = projectIssues(response);
+    const issues: ProjectIssue[] = [];
+    let after: string | null = null;
+    do {
+      const response = await client.request(projectDependenciesQuery, { projectId, after });
+      issues.push(...projectIssues(response));
+      const pageInfo = response?.data?.node?.items?.pageInfo;
+      after = pageInfo?.hasNextPage ? pageInfo.endCursor : null;
+    } while (after);
     return {
       cycles: args.criteria.check_cycles ? findDependencyCycles(issues) : undefined,
       missing: args.criteria.check_missing ? findMissingDependencies(issues) : undefined,

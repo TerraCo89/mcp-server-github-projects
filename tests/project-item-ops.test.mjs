@@ -51,7 +51,7 @@ test('project item tools list and edit items', async () => {
     }
 
     if (body.includes('AddProjectItem')) {
-      return makeResponse({ data: { addProjectV2Item: { item: { id: 'added-item' } } } });
+      return makeResponse({ data: { addProjectV2ItemById: { item: { id: 'added-item' } } } });
     }
 
     if (body.includes('DeleteProjectItem')) {

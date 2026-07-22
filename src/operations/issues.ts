@@ -235,7 +235,7 @@ export async function createIssue(
       variables: { owner: repo_owner, name: repo_name }
     }
   });
-  const repoId = (repoResponse as any).data.repository.id;
+  const repoId = (repoResponse as any).data?.repository?.id;
   if (!repoId) throw new Error(`Repository ${repo_owner}/${repo_name} not found`);
 
   const response = await githubRequest("https://api.github.com/graphql", {
@@ -252,11 +252,12 @@ export async function createIssue(
     }
   });
 
-  const issue = (response as any).data.createIssue.issue;
+  const issue = (response as any).data?.createIssue?.issue;
+  if (!issue?.id) throw new Error('GitHub did not return the created issue');
 
   if (project_id) {
     const resolvedProjectId = await resolveGithubProjectId({ projectId: project_id });
-    await githubRequest("https://api.github.com/graphql", {
+    const projectResponse = await githubRequest("https://api.github.com/graphql", {
       method: "POST",
       body: {
         query: ADD_TO_PROJECT,
@@ -268,6 +269,9 @@ export async function createIssue(
         }
       }
     });
+    if (!(projectResponse as any).data?.addProjectV2ItemById?.item?.id) {
+      throw new Error(`GitHub did not add issue ${issue.id} to project ${resolvedProjectId}`);
+    }
   }
 
   return issue;

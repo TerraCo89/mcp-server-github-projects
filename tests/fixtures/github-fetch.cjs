@@ -59,7 +59,7 @@ global.fetch = async (url, options = {}) => {
     return response({ data: { node: { fields: { nodes: [{ id: 'FIELD_PRIORITY', name: 'Priority', options: [{ id: 'OPTION_HIGH', name: 'high' }, { id: 'OPTION_MEDIUM', name: 'medium' }, { id: 'OPTION_LOW', name: 'low' }] }] } } } });
   }
   if (query.includes('AddProjectItem')) {
-    return response({ data: { addProjectV2Item: { item: { id: 'PVTI_ADDED' } } } });
+    return response({ data: { addProjectV2ItemById: { item: { id: 'PVTI_ADDED' } } } });
   }
   if (query.includes('DeleteProjectItem')) {
     return response({ data: { deleteProjectV2Item: { deletedItemId: 'PVTI_DELETED' } } });

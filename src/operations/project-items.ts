@@ -21,7 +21,7 @@ export const ListProjectItemsSchema = z.object({
 // Type Definitions
 interface ProjectItemResponse {
   data: {
-    addProjectV2Item: {
+    addProjectV2ItemById: {
       item: {
         id: string;
       };
@@ -121,7 +121,7 @@ export async function addProjectItem(
   });
 
   const response = itemResponse as ProjectItemResponse;
-  return response.data.addProjectV2Item.item;
+  return response.data.addProjectV2ItemById.item;
 }
 
 export async function deleteProjectItem(project_id: string | undefined, item_id: string) {

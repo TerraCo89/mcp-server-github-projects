@@ -48,7 +48,16 @@ export async function githubRequest(
     throw new Error(`GitHub API error: ${error}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  if (Array.isArray(result?.errors) && result.errors.length > 0) {
+    const messages = result.errors
+      .map((error: { message?: string }) => error.message)
+      .filter(Boolean)
+      .join('; ');
+    throw new Error(`GitHub GraphQL error: ${messages || 'Unknown error'}`);
+  }
+
+  return result;
 }
 
 function parseOptionalNumber(value: string | undefined) {

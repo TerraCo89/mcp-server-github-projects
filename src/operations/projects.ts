@@ -103,19 +103,21 @@ export const GetProjectFieldsSchema = z.object({
   project_number: z.number().optional(),
 });
 
+const ProjectFieldValueSchema = z.object({
+  text: z.string().optional(),
+  number: z.number().optional(),
+  date: z.string().optional(),
+  singleSelectOptionId: z.string().optional(),
+  iterationId: z.string().optional(),
+}).refine((value) => Object.values(value).filter((item) => item !== undefined).length === 1, {
+  message: 'value must contain exactly one supported field value',
+});
+
 export const UpdateProjectFieldSchema = z.object({
   project_id: z.string(),
   item_id: z.string(),
   field_id: z.string(),
-  value: z.object({
-    text: z.string().optional(),
-    number: z.number().optional(),
-    date: z.string().optional(),
-    singleSelectOptionId: z.string().optional(),
-    iterationId: z.string().optional(),
-  }).refine((value) => Object.values(value).filter((item) => item !== undefined).length === 1, {
-    message: 'value must contain exactly one supported field value',
-  }),
+  value: z.union([z.string(), z.number(), ProjectFieldValueSchema]),
 });
 
 export const ListProjectsSchema = z.object({
@@ -272,6 +274,11 @@ export async function updateProjectField(
   field_id: string,
   value: z.infer<typeof UpdateProjectFieldSchema>["value"]
 ) {
+  const typedValue = typeof value === 'string'
+    ? { text: value }
+    : typeof value === 'number'
+      ? { number: value }
+      : value;
   return githubRequest("https://api.github.com/graphql", {
     method: "POST",
     body: {
@@ -281,7 +288,7 @@ export async function updateProjectField(
           projectId: project_id,
           itemId: item_id,
           fieldId: field_id,
-          value
+          value: typedValue
         }
       }
     }

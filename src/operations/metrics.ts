@@ -26,10 +26,11 @@ type ProjectItem = {
 };
 
 const metricsQuery = `
-  query GetProjectMetrics($projectId: ID!) {
+  query GetProjectMetrics($projectId: ID!, $after: String) {
     node(id: $projectId) {
       ... on ProjectV2 {
-        items(first: 100) {
+        items(first: 100, after: $after) {
+          pageInfo { hasNextPage endCursor }
           nodes {
             fieldValues(first: 100) {
               nodes {
@@ -160,8 +161,14 @@ export async function generateProjectMetrics(
 ) {
   const projectId = await resolveGithubProjectId({ projectId: args.project_id });
   try {
-    const response = await client.request(metricsQuery, { projectId });
-    const items = itemsFrom(response);
+    const items: ProjectItem[] = [];
+    let after: string | null = null;
+    do {
+      const response = await client.request(metricsQuery, { projectId, after });
+      items.push(...itemsFrom(response));
+      const pageInfo = response?.data?.node?.items?.pageInfo;
+      after = pageInfo?.hasNextPage ? pageInfo.endCursor : null;
+    } while (after);
     const metrics: Record<string, unknown> = {};
     for (const metric of args.metrics) {
       if (metric === 'backlog_health') metrics.backlog_health = calculateBacklogHealth(items);
