@@ -13,6 +13,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
+    "test": "npm run build && node --test tests/**/*.test.mjs",
     "prepublishOnly": "npm run build"
   },
   "repository": {
@@ -32,7 +33,7 @@
   },
   "homepage": "https://github.com/TerraCo89/mcp-server-github-projects#readme",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^0.1.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "node-fetch": "^3.3.2",
     "zod": "^3.22.4"
   },

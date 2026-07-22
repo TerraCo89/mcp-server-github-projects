@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { githubRequest, buildUrl } from "../common/utils.js";
+import { githubRequest, resolveGithubProjectId, resolveGithubOwnerNodeId, resolveGithubProjectOwner } from "../common/utils.js";
 
 // Type Definitions
 interface GitHubProjectV2 {
@@ -26,7 +26,7 @@ interface ProjectFieldsResponse {
 
 interface ListProjectsResponse {
   data: {
-    organization: {
+    organization?: {
       projectsV2: {
         nodes: Array<{
           id: string;
@@ -39,7 +39,21 @@ interface ListProjectsResponse {
           };
         }>;
       };
-    };
+    } | null;
+    user?: {
+      projectsV2: {
+        nodes: Array<{
+          id: string;
+          title: string;
+          shortDescription: string;
+          public: boolean;
+          closed: boolean;
+          items: {
+            totalCount: number;
+          };
+        }>;
+      };
+    } | null;
   };
 }
 
@@ -85,8 +99,8 @@ export const ProjectFieldSchema = z.object({
 });
 
 export const GetProjectFieldsSchema = z.object({
-  owner: z.string(),
-  project_number: z.number(),
+  owner: z.string().optional(),
+  project_number: z.number().optional(),
 });
 
 export const UpdateProjectFieldSchema = z.object({
@@ -103,13 +117,13 @@ export const UpdateProjectFieldSchema = z.object({
 });
 
 export const ListProjectsSchema = z.object({
-  organization: z.string(),
+  organization: z.string().optional(),
   page: z.number().optional(),
   per_page: z.number().optional(),
 });
 
 export const CreateProjectSchema = z.object({
-  owner: z.string(),
+  owner: z.string().optional(),
   title: z.string(),
   description: z.string().optional(),
   template: z.string().optional(),
@@ -148,8 +162,22 @@ const GET_PROJECT_FIELDS = `
 `;
 
 const LIST_ORGANIZATION_PROJECTS = `
-  query ListOrgProjects($org: String!, $first: Int!) {
-    organization(login: $org) {
+  query ListOwnerProjects($owner: String!, $first: Int!) {
+    organization(login: $owner) {
+      projectsV2(first: $first) {
+        nodes {
+          id
+          title
+          shortDescription
+          public
+          closed
+          items {
+            totalCount
+          }
+        }
+      }
+    }
+    user(login: $owner) {
       projectsV2(first: $first) {
         nodes {
           id
@@ -207,22 +235,16 @@ const LIST_USER_PROJECTS = `
 `;
 
 // Function Implementations
-export async function getProjectFields(owner: string, project_number: number) {
-  // First, get the project ID using REST API
-  const projectResponse = await githubRequest(
-    `https://api.github.com/orgs/${owner}/projects/v2/${project_number}`,
-    { headers: { "Accept": "application/vnd.github.project-beta+json" } }
-  );
-
-  const project = projectResponse as GitHubProjectV2;
-
-  // Then use GraphQL to get field details
+export async function getProjectFields(owner?: string, project_number?: number) {
+  const resolvedOwner = resolveGithubProjectOwner(owner);
+  const resolvedProjectId = await resolveGithubProjectId({ owner: resolvedOwner, projectNumber: project_number });
+  // Use GraphQL to get field details
   const fieldsResponse = await githubRequest("https://api.github.com/graphql", {
     method: "POST",
     body: {
       query: GET_PROJECT_FIELDS,
       variables: {
-        projectId: project.node_id
+        projectId: resolvedProjectId
       }
     }
   });
@@ -254,9 +276,10 @@ export async function updateProjectField(
 }
 
 export async function listOrganizationProjects(
-  organization: string,
+  organization: string | undefined,
   options: Omit<z.infer<typeof ListProjectsSchema>, "organization">
 ) {
+  const resolvedOrganization = resolveGithubProjectOwner(organization);
   const perPage = options.per_page || 20;
   
   const projectsResponse = await githubRequest("https://api.github.com/graphql", {
@@ -264,27 +287,28 @@ export async function listOrganizationProjects(
     body: {
       query: LIST_ORGANIZATION_PROJECTS,
       variables: {
-        org: organization,
+        owner: resolvedOrganization,
         first: perPage
       }
     }
   });
 
   const response = projectsResponse as ListProjectsResponse;
-  return response.data.organization.projectsV2.nodes;
+  return response.data.organization?.projectsV2.nodes ?? response.data.user?.projectsV2.nodes ?? [];
 }
 
 export async function createProject(
-  owner: string,
+  owner: string | undefined,
   options: Omit<z.infer<typeof CreateProjectSchema>, "owner">
 ) {
+  const ownerNodeId = await resolveGithubOwnerNodeId(owner);
   const projectResponse = await githubRequest("https://api.github.com/graphql", {
     method: "POST",
     body: {
       query: CREATE_PROJECT,
       variables: {
         input: {
-          ownerId: owner,
+          ownerId: ownerNodeId,
           title: options.title,
           description: options.description,
           template: options.template

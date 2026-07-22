@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { GraphQLClient } from '../common/utils.js';
 import { createGitHubError } from '../common/errors.js';
+import { resolveGithubProjectId } from '../common/utils.js';
 
 // Schema for project metrics
 export const ProjectMetricsSchema = z.object({
-  project_id: z.string(),
+  project_id: z.string().optional(),
   metrics: z.array(z.enum([
     'backlog_health',
     'dependency_status',
@@ -21,6 +22,7 @@ export async function generateProjectMetrics(
   client: GraphQLClient,
   args: z.infer<typeof ProjectMetricsSchema>
 ) {
+  const projectId = await resolveGithubProjectId({ projectId: args.project_id });
   const query = `
     query GetProjectMetrics($projectId: ID!) {
       node(id: $projectId) {
@@ -66,7 +68,7 @@ export async function generateProjectMetrics(
 
   try {
     const response = await client.request(query, {
-      projectId: args.project_id
+      projectId
     });
 
     const metrics: Record<string, any> = {};

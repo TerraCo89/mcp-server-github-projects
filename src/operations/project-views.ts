@@ -1,27 +1,28 @@
 import { z } from "zod";
 import { githubRequest } from "../common/utils.js";
+import { resolveGithubProjectId } from "../common/utils.js";
 
 // Schema Definitions
 export const CreateProjectViewSchema = z.object({
-  project_id: z.string(),
+  project_id: z.string().optional(),
   name: z.string(),
   layout: z.enum(["BOARD_LAYOUT", "TABLE_LAYOUT"]),
 });
 
 export const UpdateProjectViewSchema = z.object({
-  project_id: z.string(),
+  project_id: z.string().optional(),
   view_id: z.string(),
   name: z.string().optional(),
   layout: z.enum(["BOARD_LAYOUT", "TABLE_LAYOUT"]).optional(),
 });
 
 export const DeleteProjectViewSchema = z.object({
-  project_id: z.string(),
+  project_id: z.string().optional(),
   view_id: z.string(),
 });
 
 export const ListProjectViewsSchema = z.object({
-  project_id: z.string(),
+  project_id: z.string().optional(),
   page: z.number().optional(),
   per_page: z.number().optional(),
 });
@@ -118,17 +119,18 @@ const LIST_PROJECT_VIEWS = `
 
 // Function Implementations
 export async function createProjectView(
-  project_id: string,
+  project_id: string | undefined,
   name: string,
   layout: z.infer<typeof CreateProjectViewSchema>["layout"]
 ) {
+  const resolvedProjectId = await resolveGithubProjectId({ projectId: project_id });
   const viewResponse = await githubRequest("https://api.github.com/graphql", {
     method: "POST",
     body: {
       query: CREATE_PROJECT_VIEW,
       variables: {
         input: {
-          projectId: project_id,
+          projectId: resolvedProjectId,
           name,
           layout
         }
@@ -141,17 +143,18 @@ export async function createProjectView(
 }
 
 export async function updateProjectView(
-  project_id: string,
+  project_id: string | undefined,
   view_id: string,
   options: Omit<z.infer<typeof UpdateProjectViewSchema>, "project_id" | "view_id">
 ) {
+  const resolvedProjectId = await resolveGithubProjectId({ projectId: project_id });
   return githubRequest("https://api.github.com/graphql", {
     method: "POST",
     body: {
       query: UPDATE_PROJECT_VIEW,
       variables: {
         input: {
-          projectId: project_id,
+          projectId: resolvedProjectId,
           viewId: view_id,
           ...options
         }
@@ -160,14 +163,15 @@ export async function updateProjectView(
   });
 }
 
-export async function deleteProjectView(project_id: string, view_id: string) {
+export async function deleteProjectView(project_id: string | undefined, view_id: string) {
+  const resolvedProjectId = await resolveGithubProjectId({ projectId: project_id });
   return githubRequest("https://api.github.com/graphql", {
     method: "POST",
     body: {
       query: DELETE_PROJECT_VIEW,
       variables: {
         input: {
-          projectId: project_id,
+          projectId: resolvedProjectId,
           viewId: view_id
         }
       }
@@ -176,9 +180,10 @@ export async function deleteProjectView(project_id: string, view_id: string) {
 }
 
 export async function listProjectViews(
-  project_id: string,
+  project_id: string | undefined,
   options: Omit<z.infer<typeof ListProjectViewsSchema>, "project_id">
 ) {
+  const resolvedProjectId = await resolveGithubProjectId({ projectId: project_id });
   const perPage = options.per_page || 20;
   
   const viewsResponse = await githubRequest("https://api.github.com/graphql", {
@@ -186,7 +191,7 @@ export async function listProjectViews(
     body: {
       query: LIST_PROJECT_VIEWS,
       variables: {
-        projectId: project_id,
+        projectId: resolvedProjectId,
         first: perPage
       }
     }

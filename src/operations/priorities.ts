@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { GraphQLClient } from '../common/utils.js';
 import { createGitHubError } from '../common/errors.js';
+import { resolveGithubProjectId } from '../common/utils.js';
 
 // Schema for priority assessment criteria
 export const PriorityAssessmentSchema = z.object({
-  project_id: z.string(),
+  project_id: z.string().optional(),
   item_id: z.string(),
   criteria: z.object({
     business_value: z.enum(['high', 'medium', 'low']),
@@ -15,7 +16,7 @@ export const PriorityAssessmentSchema = z.object({
 
 // Schema for batch priority updates
 export const BatchPriorityUpdateSchema = z.object({
-  project_id: z.string(),
+  project_id: z.string().optional(),
   items: z.array(z.object({
     item_id: z.string(),
     priority: z.enum(['high', 'medium', 'low'])
@@ -29,6 +30,7 @@ export async function assessItemPriority(
   client: GraphQLClient,
   args: z.infer<typeof PriorityAssessmentSchema>
 ) {
+  const projectId = await resolveGithubProjectId({ projectId: args.project_id });
   // Calculate overall priority based on criteria
   const priority = calculateOverallPriority(args.criteria);
   
@@ -51,8 +53,8 @@ export async function assessItemPriority(
   `;
 
   try {
-    await client.request(mutation, {
-      projectId: args.project_id,
+      await client.request(mutation, {
+      projectId,
       itemId: args.item_id,
       priority
     });
@@ -73,6 +75,7 @@ export async function batchUpdatePriorities(
   client: GraphQLClient,
   args: z.infer<typeof BatchPriorityUpdateSchema>
 ) {
+  const projectId = await resolveGithubProjectId({ projectId: args.project_id });
   const results = [];
   
   for (const item of args.items) {
@@ -95,7 +98,7 @@ export async function batchUpdatePriorities(
       `;
 
       await client.request(mutation, {
-        projectId: args.project_id,
+        projectId,
         itemId: item.item_id,
         priority: item.priority
       });

@@ -1,5 +1,5 @@
-import { createServer } from '@modelcontextprotocol/sdk';
 import { z } from 'zod';
+import { createServer } from './common/create-server.js';
 
 // Import operations
 import * as projectViews from './operations/project-views.js';
