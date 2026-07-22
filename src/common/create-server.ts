@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate, ReadResourceCallback, ReadResourceTemplateCallback, ResourceMetadata } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { githubRequest } from "./utils.js";
@@ -9,11 +9,19 @@ type OperationConfig = {
   handler: (args: { input: any; context: { client: { request: (query: string, variables?: Record<string, any>) => Promise<any> } } }) => Promise<any> | any;
 };
 
+type ResourceRegistrationConfig = {
+  name: string;
+  uriOrTemplate: string | ResourceTemplate;
+  metadata?: ResourceMetadata;
+  readCallback: ReadResourceCallback | ReadResourceTemplateCallback;
+};
+
 type ServerConfig = {
   name: string;
   version: string;
   description: string;
   operations: Record<string, OperationConfig>;
+  resources?: ResourceRegistrationConfig[];
 };
 
 export function createServer(config: ServerConfig) {
@@ -43,6 +51,26 @@ export function createServer(config: ServerConfig) {
         };
       }
     );
+  }
+
+  if (config.resources) {
+    for (const resource of config.resources) {
+      if (typeof resource.uriOrTemplate === 'string') {
+        server.registerResource(
+          resource.name,
+          resource.uriOrTemplate,
+          resource.metadata || {},
+          resource.readCallback as ReadResourceCallback
+        );
+      } else {
+        server.registerResource(
+          resource.name,
+          resource.uriOrTemplate as ResourceTemplate,
+          resource.metadata || {},
+          resource.readCallback as ReadResourceTemplateCallback
+        );
+      }
+    }
   }
 
   return Object.freeze({
