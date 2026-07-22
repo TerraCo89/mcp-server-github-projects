@@ -28,6 +28,8 @@ test('GitHub Projects MCP calls every tool and reads every resource', async () =
       ['deleteProjectItem', { project_id: 'PVT_1', item_id: 'PVTI_1' }],
       ['getProjectFields', {}],
       ['updateProjectField', { project_id: 'PVT_1', item_id: 'PVTI_1', field_id: 'FIELD_1', value: 'In progress' }],
+      ['updateProjectField', { project_id: 'PVT_1', item_id: 'PVTI_1', field_id: 'FIELD_2', value: 3 }],
+      ['updateProjectField', { project_id: 'PVT_1', item_id: 'PVTI_1', field_id: 'FIELD_3', value: { singleSelectOptionId: 'OPTION_1' } }],
       ['listProjectViews', { project_id: 'PVT_1' }],
       ['assessItemPriority', { project_id: 'PVT_1', item_id: 'PVTI_1', criteria: { business_value: 'high', technical_complexity: 'low', client_priority: 'urgent' } }],
       ['batchUpdatePriorities', { project_id: 'PVT_1', items: [{ item_id: 'PVTI_1', priority: 'high' }] }],

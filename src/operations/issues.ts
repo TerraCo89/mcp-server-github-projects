@@ -255,7 +255,11 @@ export async function createIssue(
   const issue = (response as any).data?.createIssue?.issue;
   if (!issue?.id) throw new Error('GitHub did not return the created issue');
 
-  if (project_id) {
+  if (!project_id) {
+    return issue;
+  }
+
+  try {
     const resolvedProjectId = await resolveGithubProjectId({ projectId: project_id });
     const projectResponse = await githubRequest("https://api.github.com/graphql", {
       method: "POST",
@@ -272,7 +276,12 @@ export async function createIssue(
     if (!(projectResponse as any).data?.addProjectV2ItemById?.item?.id) {
       throw new Error(`GitHub did not add issue ${issue.id} to project ${resolvedProjectId}`);
     }
+    return issue;
+  } catch (error) {
+    return {
+      issue,
+      added_to_project: false,
+      project_add_error: error instanceof Error ? error.message : 'Failed to add issue to project',
+    };
   }
-
-  return issue;
 }

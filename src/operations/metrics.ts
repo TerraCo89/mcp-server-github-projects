@@ -17,6 +17,7 @@ type DependencyIssue = { id: string; state: string };
 type ProjectItem = {
   fieldValues: { nodes: Array<{ name: string; field: { name: string } | null }> };
   content: {
+    __typename: string;
     id: string;
     state: string;
     createdAt: string;
@@ -43,9 +44,9 @@ const metricsQuery = `
               }
             }
             content {
+              __typename
               ... on Issue {
                 id state createdAt closedAt
-                blockedBy(first: 100) { nodes { id state } }
               }
               ... on PullRequest {
                 id state createdAt closedAt
@@ -58,8 +59,36 @@ const metricsQuery = `
   }
 `;
 
+const blockedByQuery = `
+  query GetIssueBlockedBy($issueId: ID!, $after: String) {
+    node(id: $issueId) {
+      ... on Issue {
+        blockedBy(first: 100, after: $after) {
+          pageInfo { hasNextPage endCursor }
+          nodes { id state }
+        }
+      }
+    }
+  }
+`;
+
 function itemsFrom(data: any): ProjectItem[] {
   return (data?.data?.node?.items?.nodes ?? []) as ProjectItem[];
+}
+
+async function populateBlockedBy(client: GraphQLClient, items: ProjectItem[]) {
+  const issues = items.filter((item) => item.content?.__typename === 'Issue' && item.content.id);
+  for (const item of issues) {
+    const blockers: DependencyIssue[] = [];
+    let after: string | null = null;
+    do {
+      const response = await client.request(blockedByQuery, { issueId: item.content!.id, after });
+      const blockedBy = response?.data?.node?.blockedBy;
+      blockers.push(...(blockedBy?.nodes ?? []));
+      after = blockedBy?.pageInfo?.hasNextPage ? blockedBy.pageInfo.endCursor : null;
+    } while (after);
+    item.content!.blockedBy = { nodes: blockers };
+  }
 }
 
 function selectedValue(item: ProjectItem, fieldName: string) {
@@ -169,6 +198,7 @@ export async function generateProjectMetrics(
       const pageInfo = response?.data?.node?.items?.pageInfo;
       after = pageInfo?.hasNextPage ? pageInfo.endCursor : null;
     } while (after);
+    if (args.metrics.includes('dependency_status')) await populateBlockedBy(client, items);
     const metrics: Record<string, unknown> = {};
     for (const metric of args.metrics) {
       if (metric === 'backlog_health') metrics.backlog_health = calculateBacklogHealth(items);

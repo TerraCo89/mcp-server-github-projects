@@ -113,8 +113,6 @@ const projectDependenciesQuery = `
               ... on Issue {
                 id
                 state
-                blockedBy(first: 100) { nodes { id state } }
-                blocking(first: 100) { nodes { id state } }
               }
             }
           }
@@ -124,10 +122,34 @@ const projectDependenciesQuery = `
   }
 `;
 
+const issueBlockersQuery = `
+  query GetIssueBlockers($issueId: ID!, $after: String) {
+    node(id: $issueId) {
+      ... on Issue {
+        blockedBy(first: 100, after: $after) {
+          pageInfo { hasNextPage endCursor }
+          nodes { id state }
+        }
+      }
+    }
+  }
+`;
+
 function projectIssues(data: any): ProjectIssue[] {
   return (data?.data?.node?.items?.nodes ?? [])
-    .map((item: { content?: ProjectIssue }) => item.content)
-    .filter((content: ProjectIssue | undefined): content is ProjectIssue => Boolean(content?.id));
+    .map((item: { content?: IssueReference }) => item.content)
+    .filter((content: IssueReference | undefined): content is IssueReference => Boolean(content?.id))
+    .map((content: IssueReference) => ({ ...content, blockedBy: { nodes: [] }, blocking: { nodes: [] } }));
+}
+
+async function populateBlockers(client: GraphQLClient, issue: ProjectIssue) {
+  let after: string | null = null;
+  do {
+    const response = await client.request(issueBlockersQuery, { issueId: issue.id, after });
+    const blockedBy = response?.data?.node?.blockedBy;
+    issue.blockedBy.nodes.push(...(blockedBy?.nodes ?? []));
+    after = blockedBy?.pageInfo?.hasNextPage ? blockedBy.pageInfo.endCursor : null;
+  } while (after);
 }
 
 function findDependencyCycles(issues: ProjectIssue[]) {
@@ -192,6 +214,7 @@ export async function analyzeDependencies(
       const pageInfo = response?.data?.node?.items?.pageInfo;
       after = pageInfo?.hasNextPage ? pageInfo.endCursor : null;
     } while (after);
+    for (const issue of issues) await populateBlockers(client, issue);
     return {
       cycles: args.criteria.check_cycles ? findDependencyCycles(issues) : undefined,
       missing: args.criteria.check_missing ? findMissingDependencies(issues) : undefined,
