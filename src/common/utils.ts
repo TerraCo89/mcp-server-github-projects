@@ -97,11 +97,13 @@ export async function resolveGithubProjectId(
       query: `
         query($owner: String!, $number: Int!) {
           organization(login: $owner) {
+            id
             projectV2(number: $number) {
               id
             }
           }
           user(login: $owner) {
+            id
             projectV2(number: $number) {
               id
             }
@@ -112,6 +114,8 @@ export async function resolveGithubProjectId(
     },
   });
 
+  const orgId = response?.data?.organization?.id;
+  const userId = response?.data?.user?.id;
   const resolvedProjectId = response?.data?.organization?.projectV2?.id ?? response?.data?.user?.projectV2?.id;
   if (resolvedProjectId) {
     return String(resolvedProjectId);
@@ -124,9 +128,26 @@ export async function resolveGithubProjectId(
         .join('; ')
     : '';
 
-  throw new Error(errors
-    ? `GitHub Projects lookup did not return an id: ${errors}`
-    : 'GitHub Projects lookup did not return an id');
+  if (errors) {
+    throw new Error(`GitHub Projects lookup failed: ${errors}`);
+  }
+
+  if (orgId) {
+    throw new Error(
+      `GitHub Projects: organization "${owner}" exists but no project with number ${projectNumber} was found. ` +
+      `Verify the project number and that your GITHUB_TOKEN has access to the project.`
+    );
+  }
+  if (userId) {
+    throw new Error(
+      `GitHub Projects: user "${owner}" exists but no project with number ${projectNumber} was found.`
+    );
+  }
+
+  throw new Error(
+    `GitHub Projects: owner "${owner}" was not found as an organization or user. ` +
+    `Verify the owner name and that your GITHUB_TOKEN has the required scopes (read:org, repo).`
+  );
 }
 
 export async function resolveGithubOwnerNodeId(owner?: string) {
