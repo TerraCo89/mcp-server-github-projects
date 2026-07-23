@@ -5,7 +5,6 @@ import { githubRequest, resolveGithubProjectId } from "../common/utils.js";
 export const AddProjectItemSchema = z.object({
   project_id: z.string().optional(),
   content_id: z.string(),
-  content_type: z.enum(["ISSUE", "PULL_REQUEST"]),
 });
 
 export const DeleteProjectItemSchema = z.object({
@@ -22,7 +21,7 @@ export const ListProjectItemsSchema = z.object({
 // Type Definitions
 interface ProjectItemResponse {
   data: {
-    addProjectV2Item: {
+    addProjectV2ItemById: {
       item: {
         id: string;
       };
@@ -41,14 +40,8 @@ interface ProjectItemsListResponse {
             title: string;
             number: number;
             state: string;
-          };
-          fieldValues: {
-            nodes: Array<{
-              field: {
-                name: string;
-              };
-              value: string | number | null;
-            }>;
+            url?: string;
+            body?: string;
           };
         }>;
       };
@@ -88,30 +81,17 @@ const LIST_PROJECT_ITEMS = `
                 title
                 number
                 state
+                url
               }
               ... on PullRequest {
                 title
                 number
                 state
+                url
               }
-            }
-            fieldValues(first: 100) {
-              nodes {
-                field {
-                  name
-                }
-                ... on ProjectV2ItemFieldTextValue {
-                  text
-                }
-                ... on ProjectV2ItemFieldNumberValue {
-                  number
-                }
-                ... on ProjectV2ItemFieldDateValue {
-                  date
-                }
-                ... on ProjectV2ItemFieldSingleSelectValue {
-                  name
-                }
+              ... on DraftIssue {
+                title
+                body
               }
             }
           }
@@ -124,8 +104,7 @@ const LIST_PROJECT_ITEMS = `
 // Function Implementations
 export async function addProjectItem(
   project_id: string | undefined,
-  content_id: string,
-  content_type: z.infer<typeof AddProjectItemSchema>["content_type"]
+  content_id: string
 ) {
   const resolvedProjectId = await resolveGithubProjectId({ projectId: project_id });
   const itemResponse = await githubRequest("https://api.github.com/graphql", {
@@ -142,7 +121,7 @@ export async function addProjectItem(
   });
 
   const response = itemResponse as ProjectItemResponse;
-  return response.data.addProjectV2Item.item;
+  return response.data.addProjectV2ItemById.item;
 }
 
 export async function deleteProjectItem(project_id: string | undefined, item_id: string) {

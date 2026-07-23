@@ -1,51 +1,64 @@
+import 'dotenv/config';
 import { z } from 'zod';
 import { createServer } from './common/create-server.js';
 
-// Import operations
+import * as projects from './operations/projects.js';
+import * as projectItems from './operations/project-items.js';
 import * as projectViews from './operations/project-views.js';
 import * as priorities from './operations/priorities.js';
 import * as dependencies from './operations/dependencies.js';
 import * as metrics from './operations/metrics.js';
+import * as issues from './operations/issues.js';
+import { createResourceRegistrations } from './resources/index.js';
 
-// Create and export the MCP server
 export const server = createServer({
   name: 'github-projects',
   version: '0.1.0',
   description: 'GitHub Projects API operations for MCP',
   operations: {
-    // Project Views Operations
-    createProjectView: {
-      description: 'Create a new view in a GitHub Project',
-      input: projectViews.CreateProjectViewSchema,
+    listProjectItems: {
+      description: 'List items in a GitHub Project',
+      input: projectItems.ListProjectItemsSchema,
       handler: async ({ input, context }) => {
-        return projectViews.createProjectView(
+        return projectItems.listProjectItems(input.project_id, {
+          page: input.page,
+          per_page: input.per_page
+        });
+      },
+    },
+    addProjectItem: {
+      description: 'Add an issue or pull request to a GitHub Project',
+      input: projectItems.AddProjectItemSchema,
+      handler: async ({ input, context }) => {
+        return projectItems.addProjectItem(
           input.project_id,
-          input.name,
-          input.layout
+          input.content_id
         );
       },
     },
-    updateProjectView: {
-      description: 'Update an existing view in a GitHub Project',
-      input: projectViews.UpdateProjectViewSchema,
+    deleteProjectItem: {
+      description: 'Delete an item from a GitHub Project',
+      input: projectItems.DeleteProjectItemSchema,
       handler: async ({ input, context }) => {
-        return projectViews.updateProjectView(
-          input.project_id,
-          input.view_id,
-          {
-            name: input.name,
-            layout: input.layout
-          }
-        );
+        return projectItems.deleteProjectItem(input.project_id, input.item_id);
       },
     },
-    deleteProjectView: {
-      description: 'Delete a view from a GitHub Project',
-      input: projectViews.DeleteProjectViewSchema,
+    getProjectFields: {
+      description: 'Get fields for a GitHub Project',
+      input: projects.GetProjectFieldsSchema,
       handler: async ({ input, context }) => {
-        return projectViews.deleteProjectView(
+        return projects.getProjectFields(input.owner, input.project_number);
+      },
+    },
+    updateProjectField: {
+      description: 'Update a field on a GitHub Project item',
+      input: projects.UpdateProjectFieldSchema,
+      handler: async ({ input, context }) => {
+        return projects.updateProjectField(
           input.project_id,
-          input.view_id
+          input.item_id,
+          input.field_id,
+          input.value
         );
       },
     },
@@ -62,8 +75,6 @@ export const server = createServer({
         );
       },
     },
-
-    // Priority Operations
     assessItemPriority: {
       description: 'Assess and update the priority of a project item',
       input: priorities.PriorityAssessmentSchema,
@@ -78,8 +89,6 @@ export const server = createServer({
         return priorities.batchUpdatePriorities(context.client, input);
       },
     },
-
-    // Dependency Operations
     manageItemDependencies: {
       description: 'Manage dependencies between project items',
       input: dependencies.DependencyManagementSchema,
@@ -94,8 +103,6 @@ export const server = createServer({
         return dependencies.analyzeDependencies(context.client, input);
       },
     },
-
-    // Metrics Operations
     generateProjectMetrics: {
       description: 'Generate metrics for a project',
       input: metrics.ProjectMetricsSchema,
@@ -103,10 +110,74 @@ export const server = createServer({
         return metrics.generateProjectMetrics(context.client, input);
       },
     },
+    createDraftIssue: {
+      description: 'Create a draft issue directly in a GitHub Project',
+      input: issues.CreateDraftIssueSchema,
+      handler: async ({ input, context }) => {
+        return issues.createDraftIssue(input.project_id, input.title, input.body);
+      },
+    },
+    updateDraftIssue: {
+      description: 'Update a draft issue title and/or body in a GitHub Project',
+      input: issues.UpdateDraftIssueSchema,
+      handler: async ({ input, context }) => {
+        return issues.updateDraftIssue(input.item_id, input.title, input.body);
+      },
+    },
+    updateIssue: {
+      description: 'Update an existing issue title, body, or state',
+      input: issues.UpdateIssueSchema,
+      handler: async ({ input, context }) => {
+        return issues.updateIssue(input.issue_id, input.title, input.body, input.state);
+      },
+    },
+    createIssue: {
+      description: 'Create a new issue in a repository and optionally add to a project',
+      input: issues.CreateIssueSchema,
+      handler: async ({ input, context }) => {
+        return issues.createIssue(
+          input.repo_owner,
+          input.repo_name,
+          input.title,
+          input.body,
+          input.project_id
+        );
+      },
+    },
+    listOrganizationProjects: {
+      description: 'List projects for an organization or user',
+      input: projects.ListProjectsSchema,
+      handler: async ({ input, context }) => {
+        return projects.listOrganizationProjects(input.organization, {
+          page: input.page,
+          per_page: input.per_page
+        });
+      },
+    },
+    createProject: {
+      description: 'Create a new GitHub Project',
+      input: projects.CreateProjectSchema,
+      handler: async ({ input, context }) => {
+        return projects.createProject(input.owner, {
+          title: input.title,
+          description: input.description,
+        });
+      },
+    },
+    listUserProjects: {
+      description: 'List projects for the authenticated user',
+      input: projects.ListUserProjectsSchema,
+      handler: async ({ input, context }) => {
+        return projects.listUserProjects({
+          page: input.page,
+          per_page: input.per_page
+        });
+      },
+    },
   },
+  resources: createResourceRegistrations(),
 });
 
-// Start the server if this file is run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   server.listen();
 }

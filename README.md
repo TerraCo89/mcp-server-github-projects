@@ -61,7 +61,7 @@ Docker alternative: `docker build -t mcp/github-projects .` then use `docker run
 - `getProjectFields` / `updateProjectField` — read and write custom fields
 
 ### Views
-- `createProjectView` / `updateProjectView` / `deleteProjectView` / `listProjectViews`
+- `listProjectViews` — list Project views. GitHub's GraphQL API does not currently support creating, updating, or deleting Project V2 views.
 
 ### Priorities
 - `assessItemPriority` — score one item's priority from its content and context
